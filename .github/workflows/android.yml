@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Real APK
 
 on:
   push:
@@ -25,30 +25,34 @@ jobs:
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
 
-    - name: Fix and Build
+    - name: Real Build Process
       run: |
-        # تحميل المكتبات
+        # تثبيت المكتبات
         npm install
         
-        # التأكد من وجود ملف index.html في المجلد الرئيسي (حل مشكلة الخطأ الأخير)
-        if [ ! -f "index.html" ]; then
-          find . -name "index.html" -not -path "./node_modules/*" -exec cp {} . \;
+        # التأكد من مكان index.html الحقيقي ونقله للمكان الذي يتوقعه Vite (بدون افتراضات)
+        # هذا الأمر يبحث عن ملفك الأصلي فقط ويضعه في المسار المطلوب للبناء
+        REAL_INDEX=$(find . -name "index.html" -not -path "./node_modules/*" | head -n 1)
+        if [ ! -z "$REAL_INDEX" ]; then
+          cp "$REAL_INDEX" ./index.html
+        else
+          echo "Error: index.html not found in your project!"
+          exit 1
         fi
         
-        # بناء ملفات الويب
+        # بناء مشروعك الحقيقي
         ./node_modules/.bin/vite build
         
-        # مزامنة كاباسيتور وبناء الأندرويد
-        mkdir -p www
-        ./node_modules/.bin/cap add android || true
-        ./node_modules/.bin/cap sync android
+        # مزامنة Capacitor مع كودك المبنّي
+        ./node_modules/.bin/cap sync android || (./node_modules/.bin/cap add android && ./node_modules/.bin/cap sync android)
         
+        # بناء الـ APK من مجلد الأندرويد
         cd android
         chmod +x gradlew
         ./gradlew assembleDebug
 
-    - name: Upload Final APK
+    - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
-        name: My-App-APK
+        name: Your-Real-App
         path: android/app/build/outputs/apk/debug/app-debug.apk
