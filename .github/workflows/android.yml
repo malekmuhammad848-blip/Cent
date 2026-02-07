@@ -25,19 +25,24 @@ jobs:
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
 
-    - name: Emergency Force Build
+    - name: Fix and Build
       run: |
-        # تحميل المكتبات في الخادم
+        # تحميل المكتبات
         npm install
         
-        # بناء ملفات الويب بمناداة المجلد المباشر (تجاوز npx)
+        # التأكد من وجود ملف index.html في المجلد الرئيسي (حل مشكلة الخطأ الأخير)
+        if [ ! -f "index.html" ]; then
+          find . -name "index.html" -not -path "./node_modules/*" -exec cp {} . \;
+        fi
+        
+        # بناء ملفات الويب
         ./node_modules/.bin/vite build
         
-        # مزامنة كاباسيتور بمناداة المجلد المباشر
+        # مزامنة كاباسيتور وبناء الأندرويد
+        mkdir -p www
         ./node_modules/.bin/cap add android || true
         ./node_modules/.bin/cap sync android
         
-        # الدخول لبناء الأندرويد
         cd android
         chmod +x gradlew
         ./gradlew assembleDebug
