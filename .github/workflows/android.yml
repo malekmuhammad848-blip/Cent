@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Debug and Build APK
 
 on:
   push:
@@ -16,40 +16,42 @@ jobs:
       with:
         node-version: '20'
 
-    - name: Set up JDK 17
-      uses: actions/setup-java@v4
-      with:
-        java-version: '17'
-        distribution: 'temurin'
-
-    - name: Setup Android SDK
-      uses: android-actions/setup-android@v3
-
-    - name: Direct Build Process
+    - name: Show Project Structure
       run: |
-        # 1. تثبيت المكتبات (سيتم إنزالها في الخادم فقط ولن ترفع لغيت هوب)
+        echo "--- قائمة الملفات في المستودع حالياً ---"
+        ls -R
+        echo "---------------------------------------"
+
+    - name: Install and Build
+      run: |
         npm install
         
-        # 2. البحث عن ملف index.html الأصلي ونقله للمكان الصحيح
-        # Vite يتوقع وجود الملف في المجلد الرئيسي لبدء البناء
-        REAL_INDEX=$(find . -name "index.html" -not -path "./node_modules/*" | head -n 1)
-        if [ ! -z "$REAL_INDEX" ]; then
-          cp "$REAL_INDEX" ./index.html
+        # محاولة البحث عن الملف وتحديد مكانه بدقة
+        INDEX_PATH=$(find . -name "index.html" -not -path "./node_modules/*" | head -n 1)
+        
+        if [ -z "$INDEX_PATH" ]; then
+          echo "!!! خطأ فادح: ملف index.html غير موجود في أي مكان في المستودع !!!"
+          ls -R
+          exit 1
+        else
+          echo "تم العثور على الملف في: $INDEX_PATH"
+          # وضعه في المسار الرئيسي لأن Vite يبحث عنه هناك افتراضياً
+          cp "$INDEX_PATH" ./index.html
         fi
 
-        # 3. بناء ملفات الويب باستخدام المسار المباشر لـ vite
-        ./node_modules/.bin/vite build
+        # تشغيل البناء مع إظهار تفاصيل الخطأ إن وجد
+        ./node_modules/.bin/vite build --debug
         
-        # 4. مزامنة Capacitor باستخدام المسار المباشر لـ cap
-        # هذا سيتجاوز خطأ "could not determine executable" نهائياً
+        # مزامنة كاباسيتور
         ./node_modules/.bin/cap sync android || (./node_modules/.bin/cap add android && ./node_modules/.bin/cap sync android)
         
-        # 5. بناء الـ APK الحقيقي
+        # بناء الـ APK
         cd android
         chmod +x gradlew
         ./gradlew assembleDebug
 
-    - name: Upload Final APK
+    - name: Upload APK
+      if: success()
       uses: actions/upload-artifact@v4
       with:
         name: Final-App-Build
