@@ -1,4 +1,4 @@
-name: Build APK with Yarn
+name: Fix and Build APK
 
 on:
   push:
@@ -25,30 +25,38 @@ jobs:
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
 
-    - name: Install and Build with Yarn
+    - name: Install and Fix
       run: |
-        # حذف أي بقايا قديمة قد تسبب المشاكل
+        # 1. تنظيف وتثبيت باستخدام Yarn
         rm -rf node_modules package-lock.json
+        yarn install
         
-        # استخدام Yarn بدلاً من npm (أكثر ثباتاً ويتجاوز الخطأ السابق)
-        yarn install --ignore-scripts
-
-        # البحث عن ملف index.html ونقله للمكان الصحيح (حل مشكلة Vite)
-        FOUND_PATH=$(find . -name "index.html" -not -path "*/node_modules/*" | head -n 1)
-        if [ -n "$FOUND_PATH" ]; then
-           echo "Found index.html at: $FOUND_PATH"
-           cp "$FOUND_PATH" ./index.html
+        # 2. إصلاح التحذير الذي ظهر في السجلات (تثبيت الكور)
+        yarn add @capacitor/core
+        
+        # 3. البحث عن ملف index.html الحقيقي ونقله
+        echo "Searching for your index.html..."
+        # نبحث عن الملف ونستثني مجلد node_modules
+        YOUR_INDEX=$(find . -type f -name "index.html" -not -path "*/node_modules/*" | head -n 1)
+        
+        if [ -n "$YOUR_INDEX" ]; then
+          echo "Found file at: $YOUR_INDEX"
+          echo "Moving it to root for Vite..."
+          cp "$YOUR_INDEX" ./index.html
+        else
+          echo "WARNING: Could not find index.html. Checking src folder..."
+          # محاولة أخيرة للبحث داخل src
+          if [ -f "src/index.html" ]; then
+             cp src/index.html .
+          fi
         fi
         
-        # بناء الويب باستخدام Yarn
-        # هذا الأمر سيبني المشروع دون الحاجة للبحث عن مسارات يدوية
+        # 4. بناء الويب
         yarn run build
 
-        # إعداد وبناء الأندرويد
+        # 5. بناء الأندرويد
         mkdir -p dist
-        # استخدام npx هنا آمن لأن Yarn قام بتثبيت الحزم بشكل صحيح
-        npx cap add android || true
-        npx cap sync android
+        npx cap sync android || (npx cap add android && npx cap sync android)
         
         cd android
         chmod +x gradlew
@@ -57,5 +65,5 @@ jobs:
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
-        name: Yarn-Built-APK
+        name: Final-App-APK
         path: android/app/build/outputs/apk/debug/app-debug.apk
