@@ -1,4 +1,4 @@
-name: Fix and Build APK
+name: Build APK Absolute Path
 
 on:
   push:
@@ -25,39 +25,26 @@ jobs:
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
 
-    - name: Install and Fix
+    - name: Ultimate Manual Build
       run: |
-        # 1. تنظيف وتثبيت باستخدام Yarn
-        rm -rf node_modules package-lock.json
-        yarn install
+        # تثبيت المكتبات
+        npm install --silent
         
-        # 2. إصلاح التحذير الذي ظهر في السجلات (تثبيت الكور)
-        yarn add @capacitor/core
-        
-        # 3. البحث عن ملف index.html الحقيقي ونقله
-        echo "Searching for your index.html..."
-        # نبحث عن الملف ونستثني مجلد node_modules
-        YOUR_INDEX=$(find . -type f -name "index.html" -not -path "*/node_modules/*" | head -n 1)
-        
-        if [ -n "$YOUR_INDEX" ]; then
-          echo "Found file at: $YOUR_INDEX"
-          echo "Moving it to root for Vite..."
-          cp "$YOUR_INDEX" ./index.html
-        else
-          echo "WARNING: Could not find index.html. Checking src folder..."
-          # محاولة أخيرة للبحث داخل src
-          if [ -f "src/index.html" ]; then
-             cp src/index.html .
-          fi
+        # البحث عن ملف index.html الأصلي ونسخه للمكان الصحيح
+        INDEX_FILE=$(find . -name "index.html" -not -path "*/node_modules/*" | head -n 1)
+        if [ -n "$INDEX_FILE" ]; then
+          cp "$INDEX_FILE" ./index.html
         fi
-        
-        # 4. بناء الويب
-        yarn run build
 
-        # 5. بناء الأندرويد
-        mkdir -p dist
-        npx cap sync android || (npx cap add android && npx cap sync android)
+        # تشغيل Vite بالمسار المباشر (تجاوز خطأ npm executable)
+        ./node_modules/.bin/vite build
         
+        # مزامنة Capacitor بالمسار المباشر
+        mkdir -p dist
+        ./node_modules/.bin/cap add android || true
+        ./node_modules/.bin/cap sync android
+        
+        # بناء الـ APK
         cd android
         chmod +x gradlew
         ./gradlew assembleDebug
@@ -65,5 +52,5 @@ jobs:
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
-        name: Final-App-APK
+        name: My-App-APK
         path: android/app/build/outputs/apk/debug/app-debug.apk
