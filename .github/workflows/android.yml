@@ -25,25 +25,24 @@ jobs:
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
 
-    - name: Fast Build
+    - name: Ultimate Build Fix
       run: |
-        # تثبيت المكتبات بهدوء تام
+        # تثبيت المكتبات
         npm install --silent
         
-        # التأكد من وجود index.html في المكان الذي يريده Vite
-        if [ -f "index.html" ]; then
-          echo "Found index.html in root."
-        else
-          find . -name "index.html" -not -path "*/node_modules/*" -exec cp {} ./index.html \;
-        fi
+        # البحث عن index.html ونقله إجبارياً للمجلد الرئيسي
+        # سنستخدم أمر Force لضمان وجوده
+        cp $(find . -name "index.html" -not -path "*/node_modules/*" | head -n 1) ./index.html || echo "File already in root"
         
-        # بناء Vite
-        ./node_modules/.bin/vite build
+        # تشغيل بناء Vite مع تحديد المسار يدوياً لتجنب خطأ الـ Resolve
+        ./node_modules/.bin/vite build --base ./
         
-        # مزامنة Capacitor وبناء الأندرويد
+        # التأكد من وجود مجلد dist ومزامنة Capacitor
         mkdir -p dist
-        ./node_modules/.bin/cap sync android || (./node_modules/.bin/cap add android && ./node_modules/.bin/cap sync android)
+        ./node_modules/.bin/cap add android || true
+        ./node_modules/.bin/cap sync android
         
+        # بناء الـ APK النهائي
         cd android
         chmod +x gradlew
         ./gradlew assembleDebug
@@ -51,5 +50,5 @@ jobs:
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
-        name: Finished-App
+        name: My-Final-App
         path: android/app/build/outputs/apk/debug/app-debug.apk
