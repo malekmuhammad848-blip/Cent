@@ -1,4 +1,4 @@
-name: Build APK Clean
+name: Build APK Isolated
 
 on:
   push:
@@ -25,24 +25,39 @@ jobs:
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
 
-    - name: Ultimate Build Fix
+    # الخطوة 1: تثبيت المكتبات فقط (بدون تشغيل أي سكربتات قد تسبب فشلاً)
+    - name: Install Dependencies
+      run: npm install --ignore-scripts
+
+    # الخطوة 2: إصلاح مكان index.html (المسبب الرئيسي لفشل Vite)
+    - name: Fix index.html location
       run: |
-        # تثبيت المكتبات
-        npm install --silent
+        echo "Searching for index.html..."
+        # البحث عن الملف في كل مكان ما عدا node_modules
+        FOUND_PATH=$(find . -name "index.html" -not -path "*/node_modules/*" | head -n 1)
         
-        # البحث عن index.html ونقله إجبارياً للمجلد الرئيسي
-        # سنستخدم أمر Force لضمان وجوده
-        cp $(find . -name "index.html" -not -path "*/node_modules/*" | head -n 1) ./index.html || echo "File already in root"
-        
-        # تشغيل بناء Vite مع تحديد المسار يدوياً لتجنب خطأ الـ Resolve
-        ./node_modules/.bin/vite build --base ./
-        
-        # التأكد من وجود مجلد dist ومزامنة Capacitor
+        if [ -n "$FOUND_PATH" ]; then
+          echo "Found index.html at: $FOUND_PATH"
+          cp "$FOUND_PATH" ./index.html
+          echo "Moved index.html to root successfully."
+        else
+          echo "CRITICAL ERROR: index.html not found in repository!"
+          # طباعة قائمة الملفات لنعرف ماذا رفعت بالضبط
+          find . -maxdepth 3 -not -path "*/node_modules/*"
+          exit 1
+        fi
+
+    # الخطوة 3: بناء الويب
+    - name: Build Web Assets
+      run: ./node_modules/.bin/vite build
+
+    # الخطوة 4: تجهيز وبناء الأندرويد
+    - name: Build Android APK
+      run: |
         mkdir -p dist
         ./node_modules/.bin/cap add android || true
         ./node_modules/.bin/cap sync android
         
-        # بناء الـ APK النهائي
         cd android
         chmod +x gradlew
         ./gradlew assembleDebug
@@ -50,5 +65,5 @@ jobs:
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
-        name: My-Final-App
+        name: Final-App-APK
         path: android/app/build/outputs/apk/debug/app-debug.apk
