@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Real Android APK
 
 on:
   push:
@@ -19,15 +19,6 @@ jobs:
     - name: Install Dependencies
       run: npm install
 
-    - name: Build Web Project
-      run: |
-        # التحقق من وجود سكربت البناء لتجنب الخطأ السابق
-        if npm run | grep -q "build"; then
-          npm run build
-        else
-          echo "No build script found, skipping to android build..."
-        fi
-
     - name: Set up JDK 17
       uses: actions/setup-java@v4
       with:
@@ -37,23 +28,20 @@ jobs:
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
 
-    - name: Build Android APK
+    - name: Sync Capacitor & Build APK
       run: |
-        # البحث عن مجلد أندرويد والدخول إليه لبدء البناء
-        if [ -d "android" ]; then
-          cd android
-          chmod +x gradlew
-          ./gradlew assembleDebug
-        elif [ -f "gradlew" ]; then
-          chmod +x gradlew
-          ./gradlew assembleDebug
-        else
-          echo "Error: Gradle wrapper not found. Cannot build APK."
-          exit 1
-        fi
+        # إنشاء مجلد البناء الويب الضروري لأندرويد
+        mkdir -p www
+        # إضافة منصة أندرويد إذا لم تكن موجودة ومزامنة الملفات
+        npx cap sync android || (npx cap add android && npx cap sync android)
+        
+        # الدخول لمجلد أندرويد وبناء التطبيق
+        cd android
+        chmod +x gradlew
+        ./gradlew assembleDebug
 
-    - name: Upload APK
+    - name: Upload Finished APK
       uses: actions/upload-artifact@v4
       with:
-        name: My-App-APK
-        path: "**/build/outputs/apk/debug/*.apk"
+        name: Real-App-Package
+        path: android/app/build/outputs/apk/debug/app-debug.apk
