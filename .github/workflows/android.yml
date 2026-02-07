@@ -19,14 +19,13 @@ jobs:
     - name: Install Dependencies
       run: npm install
 
-    - name: Build Project
+    - name: Build Web Project
       run: |
-        # التحقق من وجود سكربت البناء في package.json
-        if grep -q "build" package.json; then
+        # التحقق من وجود سكربت البناء لتجنب الخطأ السابق
+        if npm run | grep -q "build"; then
           npm run build
         else
-          echo "No build script found, creating a default dist folder"
-          mkdir -p dist
+          echo "No build script found, skipping to android build..."
         fi
 
     - name: Set up JDK 17
@@ -40,26 +39,21 @@ jobs:
 
     - name: Build Android APK
       run: |
+        # البحث عن مجلد أندرويد والدخول إليه لبدء البناء
         if [ -d "android" ]; then
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug
+        elif [ -f "gradlew" ]; then
+          chmod +x gradlew
+          ./gradlew assembleDebug
         else
-          echo "Error: Android folder not found. Running Capacitor commands..."
-          npx cap add android || true
-          npx cap sync || true
-          if [ -d "android" ]; then
-            cd android
-            chmod +x gradlew
-            ./gradlew assembleDebug
-          else
-            echo "Failed to create android folder."
-            exit 1
-          fi
+          echo "Error: Gradle wrapper not found. Cannot build APK."
+          exit 1
         fi
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
-        name: app-debug
-        path: android/app/build/outputs/apk/debug/app-debug.apk
+        name: My-App-APK
+        path: "**/build/outputs/apk/debug/*.apk"
