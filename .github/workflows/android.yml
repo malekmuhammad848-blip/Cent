@@ -25,18 +25,21 @@ jobs:
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
 
-    - name: Full Installation and Build
+    - name: Full Clean Installation
       run: |
-        # تثبيت الأدوات اللازمة إجبارياً
+        # تثبيت الأدوات المطلوبة بشكل صريح وعالمي داخل الخادم
+        npm install -g @capacitor/cli @capacitor/core @capacitor/android
         npm install
-        npm install @capacitor/core @capacitor/cli @capacitor/android
         
-        # إنشاء مجلد الويب وبناء منصة أندرويد من الصفر
+        # التأكد من وجود مجلد الويب وبناء المنصة
         mkdir -p www
-        npx cap add android || true
-        npx cap sync android
-        
-        # الدخول لمجلد الأندرويد الذي تم إنشاؤه وبناء التطبيق
+        if [ ! -d "android" ]; then
+          cap add android
+        fi
+        cap sync android
+
+    - name: Build Android APK
+      run: |
         cd android
         chmod +x gradlew
         ./gradlew assembleDebug
@@ -44,5 +47,5 @@ jobs:
     - name: Upload Finished APK
       uses: actions/upload-artifact@v4
       with:
-        name: My-Ready-App
+        name: My-App-APK
         path: android/app/build/outputs/apk/debug/app-debug.apk
