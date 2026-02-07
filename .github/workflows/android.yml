@@ -25,19 +25,19 @@ jobs:
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
 
-    - name: Install and Build
+    - name: Emergency Force Build
       run: |
-        # أولاً: تحميل المكتبات داخل خادم GitHub (لأننا لم نرفعها)
+        # تحميل المكتبات في الخادم
         npm install
         
-        # ثانياً: بناء ملفات الويب باستخدام Vite
-        npx vite build
+        # بناء ملفات الويب بمناداة المجلد المباشر (تجاوز npx)
+        ./node_modules/.bin/vite build
         
-        # ثالثاً: إضافة منصة أندرويد ومزامنتها
-        npx cap add android || true
-        npx cap sync android
+        # مزامنة كاباسيتور بمناداة المجلد المباشر
+        ./node_modules/.bin/cap add android || true
+        ./node_modules/.bin/cap sync android
         
-        # رابعاً: بناء ملف الـ APK
+        # الدخول لبناء الأندرويد
         cd android
         chmod +x gradlew
         ./gradlew assembleDebug
