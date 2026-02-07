@@ -1,4 +1,4 @@
-name: Build APK Absolute Path
+name: Build Android APK
 
 on:
   push:
@@ -25,32 +25,39 @@ jobs:
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
 
-    - name: Ultimate Manual Build
+    - name: Execute Build
       run: |
-        # تثبيت المكتبات
-        npm install --silent
+        # Install dependencies
+        npm install
         
-        # البحث عن ملف index.html الأصلي ونسخه للمكان الصحيح
-        INDEX_FILE=$(find . -name "index.html" -not -path "*/node_modules/*" | head -n 1)
-        if [ -n "$INDEX_FILE" ]; then
-          cp "$INDEX_FILE" ./index.html
+        # Search for index.html (Case-Insensitive) to fix Linux naming issues
+        # We exclude node_modules to find your actual file
+        FILE_PATH=$(find . -iname "index.html" -not -path "*/node_modules/*" | head -n 1)
+        
+        if [ -n "$FILE_PATH" ]; then
+          echo "Found index.html at: $FILE_PATH"
+          # Copy it to the root as 'index.html' exactly
+          cp "$FILE_PATH" ./index.html
+        else
+          echo "CRITICAL ERROR: The file index.html was NOT found in your repository!"
+          echo "Please check if it is included in your .gitignore file."
+          exit 1
         fi
 
-        # تشغيل Vite بالمسار المباشر (تجاوز خطأ npm executable)
-        ./node_modules/.bin/vite build
+        # Run Vite build using direct path
+        ./node_modules/.bin/vite build --base ./
         
-        # مزامنة Capacitor بالمسار المباشر
+        # Sync and build Android
         mkdir -p dist
-        ./node_modules/.bin/cap add android || true
-        ./node_modules/.bin/cap sync android
+        ./node_modules/.bin/cap sync android || (./node_modules/.bin/cap add android && ./node_modules/.bin/cap sync android)
         
-        # بناء الـ APK
         cd android
         chmod +x gradlew
         ./gradlew assembleDebug
 
     - name: Upload APK
+      if: success()
       uses: actions/upload-artifact@v4
       with:
-        name: My-App-APK
+        name: Final-App-Build
         path: android/app/build/outputs/apk/debug/app-debug.apk
